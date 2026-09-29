@@ -1,0 +1,14 @@
+# nuScenes v1.0-mini, one scene, 6 surround cameras. Requires a CUDA GPU.
+_base_: base.yaml
+device: cuda
+backend: gsplat
+data:
+  source: cache
+  cache_path: data/cache/scene-0061.pt
+  holdout_every: 8
+  image_scale: 0.5      # 1600x900 -> 800x450
+model:
+  sh_degree: 3
+  max_bg_points: 400000
+train:
+  max_steps: 30000

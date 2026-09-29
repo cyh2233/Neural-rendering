@@ -1,0 +1,55 @@
+# Common hyper-parameters. Dataset configs override these.
+seed: 0
+device: auto            # auto | cuda | cpu
+backend: auto           # auto | gsplat | torch
+output_dir: outputs
+
+data:
+  source: synthetic     # synthetic | cache
+  cache_path: null
+  holdout_every: 8      # every N-th frame is held out for evaluation (0 = none)
+  image_scale: 1.0      # downscale images at load time
+
+model:
+  sh_degree: 3
+  init_opacity: 0.1
+  init_scale_knn: 3     # neighbours used for initial scale estimate
+  max_bg_points: 300000
+  object_points_per_box: 5000
+  use_sky: true
+  sky_hidden: 64
+  use_appearance: true
+  pose_refine: true
+
+train:
+  max_steps: 30000
+  batch_cameras: 1
+  ssim_lambda: 0.2
+  depth_lambda: 0.1
+  opacity_reg: 0.0
+  sh_increase_every: 1000
+  log_every: 100
+  eval_every: 5000
+  save_every: 10000
+  lr:
+    means: 1.6e-4
+    means_final_ratio: 0.01
+    scales: 5.0e-3
+    quats: 1.0e-3
+    opacities: 5.0e-2
+    sh0: 2.5e-3
+    shN: 1.25e-4
+    sky: 1.0e-3
+    appearance: 1.0e-3
+    pose: 5.0e-4
+
+strategy:
+  enabled: true
+  refine_start: 500
+  refine_stop: 15000
+  refine_every: 100
+  reset_every: 3000
+  grow_grad2d: 2.0e-4
+  grow_scale3d: 0.01
+  prune_opa: 0.005
+  prune_scale3d: 0.1

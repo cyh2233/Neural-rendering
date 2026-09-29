@@ -1,0 +1,35 @@
+# Tiny CPU-friendly scene for smoke tests and understanding the pipeline.
+_base_: base.yaml
+device: cpu
+backend: torch
+data:
+  source: synthetic
+  holdout_every: 4
+synthetic:
+  num_frames: 8
+  width: 64
+  height: 48
+  num_bg: 400
+  num_obj: 80
+model:
+  sh_degree: 1
+  init_opacity: 0.3
+  object_points_per_box: 200
+  use_sky: true
+  sky_hidden: 16
+  use_appearance: false
+train:
+  max_steps: 300
+  log_every: 25
+  eval_every: 0
+  save_every: 0
+  sh_increase_every: 100
+  depth_lambda: 0.0
+  lr:
+    means: 1.0e-3
+strategy:
+  enabled: true
+  refine_start: 50
+  refine_stop: 250
+  refine_every: 50
+  reset_every: 100000

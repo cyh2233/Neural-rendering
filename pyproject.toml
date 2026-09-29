@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nr"
+version = "0.1.0"
+description = "3D Gaussian Splatting reconstruction and novel view synthesis for driving logs"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "torch>=2.1",
+    "numpy>=1.24",
+    "pyyaml>=6.0",
+    "imageio>=2.31",
+]
+
+[project.optional-dependencies]
+gpu = ["gsplat>=1.5"]
+nuscenes = ["nuscenes-devkit>=1.2", "pyquaternion"]
+eval = ["lpips>=0.1.4"]
+video = ["imageio[ffmpeg]"]
+viewer = ["viser>=1.0", "nerfview>=0.1"]
+dev = ["pytest>=8", "ruff>=0.5"]
+
+[tool.setuptools.packages.find]
+include = ["nr*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "gpu: requires CUDA and gsplat",
+    "slow: longer running tests",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = ["E501"]
