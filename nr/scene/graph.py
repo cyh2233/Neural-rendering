@@ -101,12 +101,12 @@ class SceneGraph(nn.Module):
         return sum(len(g) for g in self.gaussian_nodes().values())
 
     # ------------------------------------------------------------------ composition
-    def compose(self, frame_idx: int, cam_center: torch.Tensor, sh_degree: int):
+    def compose(self, frame_idx: int, cam_center: torch.Tensor, sh_degree: int, include_objects: bool = True):
         """Collect all Gaussians visible at ``frame_idx`` in world space, with colours evaluated
         for a camera at ``cam_center``. Returns (batch dict, slices {node_name: (start, end)})."""
         parts = [("background", self.background.world_gaussians(frame_idx), None)]
         for name, node in self.objects.items():
-            if node.is_visible(frame_idx):
+            if include_objects and node.is_visible(frame_idx):
                 g = node.world_gaussians(frame_idx)
                 parts.append((name, g, g.pop("rot")))
 
@@ -134,12 +134,14 @@ class SceneGraph(nn.Module):
         }
         return batch, slices
 
-    def render(self, cam: Camera, sh_degree: int | None = None, backend: str = "auto") -> dict:
+    def render(
+        self, cam: Camera, sh_degree: int | None = None, backend: str = "auto", include_objects: bool = True
+    ) -> dict:
         device = self.bg_color.device
         sh_degree = self.background.gaussians.sh_degree if sh_degree is None else sh_degree
         c2w = cam.c2w.to(device)
         K = cam.K.to(device)
-        batch, slices = self.compose(cam.frame_idx, c2w[:3, 3], sh_degree)
+        batch, slices = self.compose(cam.frame_idx, c2w[:3, 3], sh_degree, include_objects)
         viewmat = torch.linalg.inv(c2w)
         rgb, alpha, depth, info = rasterize(
             batch["means"], batch["quats"], batch["scales"], batch["opacities"], batch["colors"],

@@ -18,8 +18,9 @@ nr/
   render/   backend.py (one rasterize() entry point), gsplat_backend.py, torch_backend.py
   train/    losses.py, strategy.py (clone / split / prune per node), trainer.py
   eval/     metrics.py (PSNR, SSIM, LPIPS), nvs.py (held-out eval, shifted trajectories)
+  viz/      viewer.py (interactive viser viewer)
   utils/    geometry.py, sh.py, config.py
-scripts/    prepare_nuscenes.py, train.py, render.py, export_ply.py
+scripts/    prepare_nuscenes.py, train.py, render.py, export_ply.py, view.py
 configs/    base.yaml, synthetic.yaml, nuscenes_mini.yaml
 tests/
 ```
@@ -35,7 +36,7 @@ tests/
 
 ```bash
 pip install -e ".[dev]"                          # CPU: reference rasterizer, tests
-pip install -e ".[gpu,nuscenes,eval,video]"      # GPU machine: gsplat, nuScenes devkit, LPIPS, mp4
+pip install -e ".[gpu,nuscenes,eval,video,viewer]"   # GPU machine: gsplat, nuScenes devkit, LPIPS, mp4, viser
 ```
 
 gsplat compiles its CUDA kernels on first use, so install a PyTorch build that matches your CUDA toolkit first.
@@ -71,6 +72,22 @@ The synthetic scene is a 64x48 road with a car overtaking the ego vehicle. 300 s
    pytest -q -m gpu          # checks that gsplat and the torch rasterizer agree
    ```
 
+## Interactive viewer
+
+```bash
+python scripts/view.py --ckpt outputs/scene-0061/last.pt --port 8080
+# on a remote GPU machine: ssh -L 8080:localhost:8080 <host>, then open http://localhost:8080
+```
+
+The viewer renders the scene from your browser camera, so you can fly anywhere in the reconstruction.
+
+- **Frame slider and Play.** Moves the dynamic objects through the log.
+- **Recorded camera.** Pick a sensor, set a lateral or vertical offset, and press *Snap to camera*.
+  With *Follow while playing* on, the view follows that sensor, which gives a live lane-change view.
+- **Render mode.** RGB, depth (turbo colormap, near is warm), alpha, or background only.
+- **Overlays.** Wireframe object boxes and the frustums of the recorded cameras.
+- **Resolution.** Render width in pixels. The CPU rasterizer is slow, so the viewer starts at 160 px without gsplat.
+
 Any config value can be overridden on the command line, for example `train.max_steps=7000 data.image_scale=0.25`.
 
 ## How it works
@@ -93,4 +110,4 @@ Any config value can be overridden on the command line, for example `train.max_s
 - Only rigid vehicles are dynamic. Pedestrians and cyclists stay in the background.
 - Only keyframes are used. The 12 Hz camera sweeps and LiDAR timing offsets are ignored.
 - Nothing in this repo has been trained on real nuScenes data yet. The GPU path is written but untested here.
-- Planned: Waymo and KITTI-360 loaders, a sky segmentation mask, LiDAR rendering, and an interactive viser viewer.
+- Planned: Waymo and KITTI-360 loaders, a sky segmentation mask, and LiDAR rendering.

@@ -20,7 +20,7 @@ gpu = ["gsplat>=1.5"]
 nuscenes = ["nuscenes-devkit>=1.2", "pyquaternion"]
 eval = ["lpips>=0.1.4"]
 video = ["imageio[ffmpeg]"]
-viewer = ["viser>=1.0", "nerfview>=0.1"]
+viewer = ["viser>=1.0"]
 dev = ["pytest>=8", "ruff>=0.5"]
 
 [tool.setuptools.packages.find]
