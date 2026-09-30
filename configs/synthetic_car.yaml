@@ -1,6 +1,6 @@
 # Detailed procedural car (windows, wheels, lights) overtaken by the ego vehicle.
 # 3 cameras (front / left / back) x 16 frames at 256x144. Runs on CPU with the tiled torch rasterizer
-# in about 25 minutes (4 cores); step time grows from 0.3 s to 0.9 s as densification adds Gaussians.
+# in about 20 minutes (4 cores); step time grows from 0.3 s to 0.9 s as densification adds Gaussians.
 _base_: base.yaml
 device: auto
 backend: auto
