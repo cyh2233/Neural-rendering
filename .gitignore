@@ -6,7 +6,7 @@ __pycache__/
 build/
 dist/
 .venv/
-data/
-outputs/
+/data/
+/outputs/
 *.mp4
 *.ply
