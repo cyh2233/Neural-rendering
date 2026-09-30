@@ -8,14 +8,8 @@ import torch
 from nr.data.synthetic import make_synthetic_scene
 from nr.scene.graph import SceneGraph
 from nr.utils.config import load_config
-from nr.viz.viewer import (
-    ViewState,
-    box_corners,
-    camera_to_viser,
-    colorize_depth,
-    render_view,
-    viser_to_camera,
-)
+from nr.utils.geometry import box_corners
+from nr.viz.viewer import ViewState, camera_to_viser, colorize_depth, render_view, viser_to_camera
 
 
 @pytest.fixture(scope="module")

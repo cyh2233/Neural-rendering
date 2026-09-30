@@ -98,13 +98,6 @@ def render_view(graph, cam: Camera, state: ViewState, backend: str) -> np.ndarra
     return (out["rgb"].clamp(0, 1).cpu().numpy() * 255).round().astype(np.uint8)
 
 
-def box_corners(pose: torch.Tensor, size: torch.Tensor) -> np.ndarray:
-    """(8, 3) world corners of a box given its (4, 4) pose and (3,) size."""
-    signs = torch.tensor([[x, y, z] for x in (-1, 1) for y in (-1, 1) for z in (-1, 1)], dtype=torch.float32)
-    local = signs * size.float() / 2
-    return (local @ pose[:3, :3].T + pose[:3, 3]).numpy()
-
-
 # ----------------------------------------------------------------------------- viewer
 
 

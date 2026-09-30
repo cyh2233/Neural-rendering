@@ -1,0 +1,36 @@
+# Detailed procedural car (windows, wheels, lights) overtaken by the ego vehicle.
+# 3 cameras (front / left / back) x 16 frames at 256x144. Runs on CPU with the tiled torch rasterizer
+# in about 25 minutes (4 cores); step time grows from 0.3 s to 0.9 s as densification adds Gaussians.
+_base_: base.yaml
+device: auto
+backend: auto
+data:
+  source: synthetic_car
+  holdout_every: 4        # frames 3, 7, 11, 15 are held out
+synthetic:
+  num_frames: 16
+  width: 256
+  height: 144
+model:
+  sh_degree: 1
+  init_opacity: 0.3
+  object_points_per_box: 5000
+  max_bg_points: 100000
+  use_sky: true
+  sky_hidden: 32
+  use_appearance: false
+train:
+  max_steps: 2000
+  log_every: 100
+  eval_every: 500
+  save_every: 500
+  sh_increase_every: 1000
+  depth_lambda: 0.05
+  lr:
+    means: 1.6e-4
+strategy:
+  enabled: true
+  refine_start: 300
+  refine_stop: 1500
+  refine_every: 100
+  reset_every: 1000

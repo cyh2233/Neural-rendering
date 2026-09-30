@@ -77,6 +77,59 @@ class RigidObjectNode(nn.Module):
         return g
 
 
+    @torch.no_grad()
+    def interpolate_untrained(self, trained: torch.Tensor) -> int:
+        """Replace the pose of every valid frame that had no training image with an interpolation of
+        the *refined* poses of the nearest trained frames before and after it.
+
+        Frames without images get no gradient, so they would otherwise keep the raw (noisy)
+        annotation. Translation is interpolated linearly, heading (yaw) along the shortest arc.
+        Outside the trained range the two nearest trained frames are extrapolated at constant
+        velocity. Returns the number of frames changed.
+        """
+        trained = trained.to(self.valid.device) & self.valid
+        known = trained.nonzero().squeeze(1).tolist()
+        if not known:
+            return 0
+        refined = {t: self.pose(t) for t in known}
+
+        def yaw(rot):
+            return torch.atan2(rot[1, 0], rot[0, 0])
+
+        changed = 0
+        for t in range(self.valid.shape[0]):
+            if not self.valid[t] or trained[t]:
+                continue
+            before = [k for k in known if k < t]
+            after = [k for k in known if k > t]
+            if before and after:
+                a, b = before[-1], after[0]          # interpolate
+            elif len(before) >= 2:
+                a, b = before[-2], before[-1]        # extrapolate forward at constant velocity
+            elif len(after) >= 2:
+                a, b = after[0], after[1]            # extrapolate backward
+            else:
+                a = b = (before or after)[0]
+            if a == b:
+                rot, trans = refined[a]
+            else:
+                w = (t - a) / (b - a)
+                (ra, ta), (rb, tb) = refined[a], refined[b]
+                dy = torch.remainder(yaw(rb) - yaw(ra) + math.pi, 2 * math.pi) - math.pi
+                y = yaw(ra) + w * dy
+                trans = ta + w * (tb - ta)
+                c, s_ = torch.cos(y), torch.sin(y)
+                zero, one = torch.zeros_like(c), torch.ones_like(c)
+                rot = torch.stack([torch.stack([c, -s_, zero]), torch.stack([s_, c, zero]),
+                                   torch.stack([zero, zero, one])])
+            self.base_poses[t, :3, :3] = rot
+            self.base_poses[t, :3, 3] = trans
+            self.delta_trans[t] = 0.0
+            self.delta_yaw[t] = 0.0
+            changed += 1
+        return changed
+
+
 class SkyNode(nn.Module):
     """Infinitely far background: colour as a function of world-space ray direction."""
 

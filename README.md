@@ -13,15 +13,15 @@ runs on CPU, so the whole pipeline can be tested and read without a GPU.
 
 ```
 nr/
-  data/     types.py (Camera, BoxTrack, SceneData), nuscenes.py, synthetic.py, cache.py, loader.py
+  data/     types.py (Camera, BoxTrack, SceneData), nuscenes.py, synthetic.py, synthetic_car.py, cache.py, loader.py
   scene/    gaussians.py, nodes.py (background / rigid object / sky), graph.py, appearance.py
   render/   backend.py (one rasterize() entry point), gsplat_backend.py, torch_backend.py
   train/    losses.py, strategy.py (clone / split / prune per node), trainer.py
   eval/     metrics.py (PSNR, SSIM, LPIPS), nvs.py (held-out eval, shifted trajectories)
   viz/      viewer.py (interactive viser viewer)
   utils/    geometry.py, sh.py, config.py
-scripts/    prepare_nuscenes.py, train.py, render.py, export_ply.py, view.py
-configs/    base.yaml, synthetic.yaml, nuscenes_mini.yaml
+scripts/    prepare_nuscenes.py, train.py, render.py, export_ply.py, view.py, compare_car.py
+configs/    base.yaml, synthetic.yaml, synthetic_car.yaml, nuscenes_mini.yaml
 tests/
 ```
 
@@ -51,6 +51,22 @@ python scripts/render.py --ckpt outputs/synthetic/last.pt --mode shift --lateral
 ```
 
 The synthetic scene is a 64x48 road with a car overtaking the ego vehicle. 300 steps take about 30 s on CPU.
+It only checks that the pipeline runs; its "car" is a 20x8-pixel blob, so it says nothing about detail.
+
+## Detailed car test on CPU
+
+`configs/synthetic_car.yaml` builds a procedural car with glass and pillars, wheels with hubs, head and tail
+lights, a grille and number plates, in a street with lane markings and building facades. The ego vehicle
+overtakes it, so the front, left and rear cameras see the car's back, side and front. Images are 256x144.
+
+```bash
+python scripts/train.py --config configs/synthetic_car.yaml --out outputs/synthetic_car
+python scripts/compare_car.py --ckpt outputs/synthetic_car/last.pt
+```
+
+`compare_car.py` prints whole-frame and object-region metrics (`obj_psnr`, `obj_ssim`) on held-out frames,
+and writes image grids of ground truth vs render, a background-only render, and a laterally shifted view.
+Object-region metrics matter because sky and road dominate whole-frame PSNR.
 
 ## nuScenes (GPU)
 
@@ -104,6 +120,9 @@ Any config value can be overridden on the command line, for example `train.max_s
 - **Loss.** `0.8 * L1 + 0.2 * (1 - SSIM)`, plus relative L1 between rendered depth and projected LiDAR.
 - **Densification.** 3DGS-style clone, split, prune and opacity reset, run separately for each node.
   It works with both rasterizers.
+- **CPU rasterizer.** The PyTorch reference renderer composites per 16x16 tile, using only the Gaussians whose
+  3-sigma footprint overlaps the tile, as gsplat does. That is about 30 times faster than evaluating every
+  Gaussian at every pixel, which is kept as `composite_dense` for testing.
 
 ## Limitations and next steps
 

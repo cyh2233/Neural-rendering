@@ -178,13 +178,24 @@ class Trainer:
         if verbose and prefix == "test":
             print("  test: " + " ".join(f"{k} {v:.4f}" for k, v in d.items() if isinstance(v, float)), flush=True)
 
+    def fill_untrained_poses(self) -> None:
+        """Held-out frames have no images, so their object poses are never refined. Interpolate them
+        from the refined poses of the neighbouring training frames instead of keeping the raw annotation."""
+        trained = torch.zeros(self.scene.num_frames, dtype=torch.bool)
+        for cam, _ in self.train_views:
+            trained[cam.frame_idx] = True
+        for node in self.graph.objects.values():
+            node.interpolate_untrained(trained)
+
     @torch.no_grad()
     def evaluate(self) -> dict:
         from nr.eval.nvs import evaluate_views
 
+        self.fill_untrained_poses()
         return evaluate_views(self.graph, self.test_views, self.backend, self.device)
 
     def save(self, name: str = "last.pt") -> Path:
+        self.fill_untrained_poses()
         path = self.out_dir / name
         torch.save(
             {

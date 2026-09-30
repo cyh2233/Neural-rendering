@@ -113,3 +113,41 @@ def test_gsplat_matches_torch_backend():
     b = rasterize(means, quats, scales, opac, cols, view, Kc, 64, 48, backend="gsplat")
     assert (a[0] - b[0]).abs().mean() < 1e-2
     assert (a[1] - b[1]).abs().mean() < 1e-2
+
+
+def _random_gaussians(n, opacity_max, seed=0, dt=torch.float32):
+    g = torch.Generator().manual_seed(seed)
+    means = torch.randn(n, 3, generator=g, dtype=dt) * torch.tensor([1.5, 0.8, 0.5], dtype=dt) + torch.tensor(
+        [0, 0, 6.0], dtype=dt
+    )
+    quats = torch.nn.functional.normalize(torch.randn(n, 4, generator=g, dtype=dt), dim=-1)
+    scales = torch.rand(n, 3, generator=g, dtype=dt) * 0.15 + 0.02
+    opac = torch.rand(n, generator=g, dtype=dt) * opacity_max + 0.01
+    cols = torch.rand(n, 3, generator=g, dtype=dt)
+    return means, quats, scales, opac, cols
+
+
+@pytest.mark.parametrize("wh", [(64, 48), (50, 37), (16, 16)])
+def test_tiled_matches_dense(wh):
+    # With opacity < 0.35 no Gaussian reaches alpha >= 1/255 beyond its 3-sigma radius,
+    # so tile culling must give exactly the dense result, values and gradients.
+    w, h = wh
+    Kc = torch.tensor([[0.8 * w, 0, w / 2], [0, 0.8 * w, h / 2], [0, 0, 1]])
+    outs = {}
+    for dense in (False, True):
+        means, quats, scales, opac, cols = _random_gaussians(300, 0.33)
+        for t in (means, scales, opac, cols):
+            t.requires_grad_()
+        rgb, alpha, depth, _ = rasterize_torch(means, quats, scales, opac, cols, torch.eye(4), Kc, w, h, dense=dense)
+        (rgb.square().sum() + alpha.sum()).backward()
+        outs[dense] = [rgb, alpha, means.grad, scales.grad, opac.grad, cols.grad]
+    for a, b in zip(outs[False], outs[True], strict=True):
+        assert torch.allclose(a, b, atol=1e-5), (a - b).abs().max()
+
+
+def test_tiled_close_to_dense_with_opaque_gaussians():
+    means, quats, scales, opac, cols = _random_gaussians(300, 0.98)
+    Kc = torch.tensor([[50.0, 0, 32], [0, 50, 24], [0, 0, 1]])
+    a = rasterize_torch(means, quats, scales, opac, cols, torch.eye(4), Kc, 64, 48)[0]
+    b = rasterize_torch(means, quats, scales, opac, cols, torch.eye(4), Kc, 64, 48, dense=True)[0]
+    assert (a - b).abs().mean() < 2e-3

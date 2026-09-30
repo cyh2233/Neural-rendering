@@ -126,6 +126,26 @@ def np_transform_points(tf: np.ndarray, pts: np.ndarray) -> np.ndarray:
     return pts @ tf[:3, :3].T + tf[:3, 3]
 
 
+def box_corners(pose: torch.Tensor, size: torch.Tensor) -> np.ndarray:
+    """(8, 3) world corners of a box given its (4, 4) pose and (3,) size."""
+    signs = torch.tensor([[x, y, z] for x in (-1, 1) for y in (-1, 1) for z in (-1, 1)], dtype=torch.float32)
+    local = signs * size.detach().cpu().float() / 2
+    pose = pose.detach().cpu().float()
+    return (local @ pose[:3, :3].T + pose[:3, 3]).numpy()
+
+
+def quat_from_z(n: torch.Tensor) -> torch.Tensor:
+    """(N, 3) unit vectors -> (N, 4) wxyz quaternions rotating +z onto them."""
+    z = torch.zeros_like(n)
+    z[:, 2] = 1.0
+    w = 1.0 + (z * n).sum(-1, keepdim=True)
+    xyz = torch.linalg.cross(z, n, dim=-1)
+    q = torch.cat([w, xyz], -1)
+    flip = w[:, 0] < 1e-6  # n == -z: rotate 180 deg about x
+    q[flip] = torch.tensor([0.0, 1.0, 0.0, 0.0], dtype=n.dtype)
+    return torch.nn.functional.normalize(q, dim=-1)
+
+
 def lateral_shift(c2w: torch.Tensor, offset: float, up: float = 0.0) -> torch.Tensor:
     """Shift an OpenCV camera sideways (+x = right) and vertically (+up = up = -y)."""
     out = c2w.clone()

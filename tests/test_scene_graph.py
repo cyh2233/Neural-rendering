@@ -75,3 +75,24 @@ def test_ply_roundtrip(tmp_path):
     h = GaussianModel.load_ply(str(path))
     for name in ("means", "quats", "scales", "opacities", "sh0", "shN"):
         assert torch.allclose(getattr(g, name), getattr(h, name)), name
+
+
+def test_interpolate_untrained_poses():
+    n = 6
+    true = [make_transform(quat_to_rotmat(yaw_to_quat(torch.tensor(0.1 * t))), torch.tensor([2.0 * t, 1.0, 0.5]))
+            for t in range(n)]
+    noisy = torch.stack(true).clone()
+    noisy[:, :3, 3] += torch.tensor([0.3, -0.2, 0.1])  # annotation error on every frame
+    g = GaussianModel.from_points(torch.randn(5, 3), sh_degree=0)
+    node = RigidObjectNode(g, noisy, torch.ones(n, dtype=torch.bool), torch.tensor([4.0, 2.0, 1.5]))
+    trained = torch.tensor([True, True, False, True, True, False])
+    with torch.no_grad():  # pretend refinement fixed the trained frames
+        for t in (0, 1, 3, 4):
+            node.base_poses[t] = true[t]
+    assert node.interpolate_untrained(trained) == 2
+    for t in (2, 5):  # 2 is interpolated between 1 and 3, 5 extrapolated from 3 and 4
+        rot, trans = node.pose(t)
+        assert torch.allclose(trans, true[t][:3, 3], atol=1e-5)
+        assert torch.allclose(rot, true[t][:3, :3], atol=1e-5)
+    # trained frames are untouched
+    assert torch.allclose(node.base_poses[1], true[1])
