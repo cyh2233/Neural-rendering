@@ -82,6 +82,7 @@ class Trainer:
         self.out_dir.mkdir(parents=True, exist_ok=True)
         self.step = 0
         self.history: list[dict] = []
+        self.final_metrics: dict = {}
         self._writer = None
         try:
             from torch.utils.tensorboard import SummaryWriter
@@ -166,6 +167,7 @@ class Trainer:
             metrics = self.evaluate()
             self._log(metrics, "test", verbose)
             (self.out_dir / "metrics.json").write_text(json.dumps(metrics, indent=2))
+            self.final_metrics = metrics
         return self.history
 
     def _log(self, d: dict, prefix: str, verbose: bool = False) -> None:

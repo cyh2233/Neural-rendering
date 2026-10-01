@@ -17,10 +17,10 @@ nr/
   scene/    gaussians.py, nodes.py (background / rigid object / sky), graph.py, appearance.py
   render/   backend.py (one rasterize() entry point), gsplat_backend.py, torch_backend.py
   train/    losses.py, strategy.py (clone / split / prune per node), trainer.py
-  eval/     metrics.py (PSNR, SSIM, LPIPS), nvs.py (held-out eval, shifted trajectories)
+  eval/     metrics.py (PSNR, SSIM, LPIPS), nvs.py (held-out eval, shifted trajectories), compare.py
   viz/      viewer.py (interactive viser viewer)
-  utils/    geometry.py, sh.py, config.py
-scripts/    prepare_nuscenes.py, train.py, render.py, export_ply.py, view.py, compare_car.py
+  utils/    geometry.py, sh.py, config.py, preflight.py (environment checks)
+scripts/    run_nuscenes.py, prepare_nuscenes.py, train.py, render.py, export_ply.py, view.py, compare_car.py
 configs/    base.yaml, synthetic.yaml, synthetic_car.yaml, nuscenes_mini.yaml
 tests/
 ```
@@ -80,7 +80,53 @@ Held-out frames have no images, so their object poses cannot be refined by train
 from the refined poses of neighbouring training frames, which removes most of the annotation noise. At
 step 1000 this raised car-region PSNR from 18.7 dB (raw annotation) to 25.4 dB.
 
-## nuScenes (GPU)
+## First real run on a GPU server (nuScenes, one command)
+
+`scripts/run_nuscenes.py` runs everything in order: environment checks, nuScenes conversion, training,
+held-out evaluation, comparison images and a trajectory video, and writes a `report.md`.
+
+1. **Install.** Install a PyTorch build that matches the server's CUDA first, then:
+
+   ```bash
+   pip install -e ".[gpu,nuscenes,eval,video,viewer]"
+   ```
+
+2. **Get the data.** Register at https://www.nuscenes.org and download `v1.0-mini` (about 4 GB).
+   After unpacking, the folder must contain `v1.0-mini/`, `samples/` and `sweeps/`.
+
+3. **Check the environment.** This takes seconds, except that the first gsplat call compiles CUDA kernels,
+   which can take a few minutes once.
+
+   ```bash
+   python scripts/run_nuscenes.py --dataroot /data/nuscenes --check-only
+   ```
+
+   Every line must read `ok` or `warn`. A `FAIL` names what to fix.
+
+4. **Run.** Start with a short run, then use the default 30,000 steps.
+
+   ```bash
+   python scripts/run_nuscenes.py --dataroot /data/nuscenes --scene scene-0061 --steps 7000
+   python scripts/run_nuscenes.py --dataroot /data/nuscenes --scene scene-0061
+   ```
+
+5. **Look at the results** in `outputs/scene-0061/`:
+   - `report.md`: environment, time per stage, held-out PSNR / SSIM / LPIPS and vehicle-region metrics
+   - `compare_frames.png`: held-out views as ground truth, reconstruction, background only and a 1.5 m shifted view
+   - `compare_crops.png`: enlarged vehicle crops, ground truth next to reconstruction
+   - `front_trajectory.mp4`: front camera through the log, ground truth and reconstruction on top,
+     1.5 m left and right shifts below
+
+Nothing here has been run on real nuScenes data yet, so there are no reference timings or scores.
+Please send back `report.md` and the two comparison images from the first run.
+
+**If something goes wrong**
+- **gsplat fails to compile.** The CUDA toolkit used for compilation must match PyTorch's CUDA version.
+- **Out of GPU memory.** Use `--image-scale 0.25` or add `model.max_bg_points=200000`.
+  Under 10 GB of VRAM the script already uses 0.25.
+- **Any config value** can be appended as `key.sub=value`, for example `train.depth_lambda=0`.
+
+## nuScenes, step by step (GPU)
 
 1. Download `v1.0-mini` from https://www.nuscenes.org/nuscenes#download and unpack it to `/data/nuscenes`.
 2. Convert one scene. This reads the six cameras and LIDAR_TOP at the 2 Hz keyframes. It splits LiDAR into

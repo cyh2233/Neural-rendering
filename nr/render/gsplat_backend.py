@@ -41,8 +41,8 @@ def rasterize_gsplat(means, quats, scales, opacities, colors, viewmat, K, width,
     if means2d.requires_grad:
         means2d.retain_grad()
     radii = info["radii"]
-    if radii.dim() == 3:  # gsplat >= 1.5 returns per-axis radii (C, N, 2)
-        radii = radii.max(dim=-1).values
+    if radii.dim() == 3:  # gsplat >= 1.5: per-axis radii (C, N, 2); valid only if both axes > 0
+        radii = torch.where((radii > 0).all(dim=-1), radii.max(dim=-1).values, torch.zeros_like(radii[..., 0]))
     out = {
         "means2d": means2d,  # (1, N, 2); gradient is read by the densification strategy
         "radii": radii[0],
